@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Buku Tamu</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: linear-gradient(to bottom right, #f0f8ff, #cce5ff);
+      padding: 40px 20px;
+      max-width: 700px;
+      margin: auto;
+      position: relative;
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    form, #adminPanel {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    input, button {
+      padding: 12px;
+      margin: 10px 0;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .admin-icon {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      cursor: pointer;
+      font-size: 24px;
+      color: #007bff;
+    }
+
+    .admin-popup {
+      display: none;
+      position: absolute;
+      top: 60px;
+      right: 20px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 5px 12px rgba(0,0,0,0.2);
+      z-index: 999;
+      width: 200px;
+    }
+
+    .message {
+      position: fixed;
+      top: 20px;
+      right: -400px;
+      min-width: 280px;
+      z-index: 9999;
+      padding: 15px 20px;
+      border-radius: 10px;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: right 0.5s ease-in-out;
+    }
+
+    .message.show {
+      right: 20px;
+    }
+
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+      border-left: 6px solid #28a745;
+    }
+
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border-left: 6px solid #dc3545;
+    }
+
+    .close {
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-left: 10px;
+      color: inherit;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      padding: 12px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+
+    .back-btn {
+      display: block;
+      margin: 20px auto 0;
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      text-decoration: none;
+      text-align: center;
+      font-weight: bold;
+      cursor: pointer;
+      width: 150px;
+    }
+
+    .back-btn:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 id="mainTitle">Harap Isi Data Anda</h1>
+
+  <div id="inputSection">
+    <form id="guestForm">
+      <input type="text" id="name" placeholder="Masukkan nama Anda" required />
+      <input type="text" id="class" placeholder="Masukkan kelas Anda" required />
+      <input type="text" id="school" placeholder="Dimana Anda sekolah?" required />
+      <input type="text" id="parent" placeholder="Masukkan nama orang tua Anda" required />
+      <button type="submit">Kirim</button>
+    </form>
+  </div>
+
+  <div class="admin-icon" onclick="toggleAdminPopup()">👤</div>
+
+  <div class="admin-popup" id="adminPopup">
+    <input type="password" id="adminKey" placeholder="Kode Admin" />
+    <button onclick="checkAccess()">Masuk</button>
+  </div>
+
+  <div id="adminPanel" style="display:none;">
+    <h2>Data Tamu</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Nama</th>
+          <th>Kelas</th>
+          <th>Sekolah</th>
+          <th>Orang Tua</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="dataBody"></tbody>
+    </table>
+    <button class="back-btn" onclick="exitAdmin()">← Kembali</button>
+  </div>
+
+  <!-- Pesan -->
+  <div id="successMessage" class="message success">
+    ✅ Terima kasih sudah mengisi!
+    <span class="close" onclick="hideMessage('successMessage')">&times;</span>
+  </div>
+  <div id="errorMessage" class="message error">
+    ❌ Kode rahasia salah!
+    <span class="close" onclick="hideMessage('errorMessage')">&times;</span>
+  </div>
+
+  <!-- Suara -->
+  <audio id="soundSuccess" src="https://assets.mixkit.co/voice/voiced-success.wav" preload="auto"></audio>
+  <audio id="soundError" src="https://assets.mixkit.co/voice/voiced-error.wav" preload="auto"></audio>
+  <audio id="soundEmpty" src="https://assets.mixkit.co/voice/voiced-warning.wav" preload="auto"></audio>
+
+  <script>
+    const SECRET_CODE = "iyainaja321";
+    const STORAGE_KEY = "guestBookData";
+
+    document.getElementById("guestForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const className = document.getElementById("class").value.trim();
+      const school = document.getElementById("school").value.trim();
+      const parent = document.getElementById("parent").value.trim();
+      if (!name || !className || !school || !parent) {
+        document.getElementById("soundEmpty").play();
+        return;
+      }
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      data.push({ name, className, school, parent });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      document.getElementById("soundSuccess").play();
+      showMessage("successMessage");
+      document.getElementById("guestForm").reset();
+    });
+
+    function toggleAdminPopup() {
+      const popup = document.getElementById("adminPopup");
+      popup.style.display = popup.style.display === "block" ? "none" : "block";
+    }
+
+    function checkAccess() {
+      const key = document.getElementById("adminKey").value;
+      if (key === SECRET_CODE) {
+        document.getElementById("adminPanel").style.display = "block";
+        document.getElementById("inputSection").style.display = "none";
+        document.getElementById("adminPopup").style.display = "none";
+        document.getElementById("mainTitle").innerText = "Panel Admin";
+        loadData();
+      } else {
+        document.getElementById("soundError").play();
+        showMessage("errorMessage");
+      }
+    }
+
+    function loadData() {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      const tbody = document.getElementById("dataBody");
+      tbody.innerHTML = "";
+      data.forEach((entry, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td><input value="${entry.name}" onchange="editData(${index}, 'name', this.value)" /></td>
+          <td><input value="${entry.className}" onchange="editData(${index}, 'className', this.value)" /></td>
+          <td><input value="${entry.school}" onchange="editData(${index}, 'school', this.value)" /></td>
+          <td><input value="${entry.parent}" onchange="editData(${index}, 'parent', this.value)" /></td>
+          <td><button onclick="deleteData(${index})">Hapus</button></td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function editData(index, field, value) {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      data[index][field] = value;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function deleteData(index) {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      if (confirm("Yakin ingin menghapus?")) {
+        data.splice(index, 1);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        loadData();
+      }
+    }
+
+    function showMessage(id) {
+      const msg = document.getElementById(id);
+      msg.classList.add("show");
+      clearTimeout(msg.timer);
+      msg.timer = setTimeout(() => hideMessage(id), 4000);
+    }
+
+    function hideMessage(id) {
+      const msg = document.getElementById(id);
+      msg.classList.remove("show");
+    }
+
+    function exitAdmin() {
+      document.getElementById("adminPanel").style.display = "none";
+      document.getElementById("inputSection").style.display = "block";
+      document.getElementById("mainTitle").innerText = "Harap Isi Data Anda";
+    }
+  </script>
+</body>
+</html>
